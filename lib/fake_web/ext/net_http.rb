@@ -5,23 +5,45 @@ require 'stringio'
 module Net  #:nodoc: all
 
   class BufferedIO
-    def initialize_with_fakeweb(io, debug_output = nil)
-      @read_timeout = 60
-      @rbuf = ''
-      @debug_output = debug_output
+    if RUBY_VERSION >= "2.5.0"
+      def initialize_with_fakeweb(io, read_timeout: 60, continue_timeout: nil, debug_output: nil)
+        @read_timeout = read_timeout
+        @continue_timeout = continue_timeout
+        @debug_output = debug_output
+        @rbuf = ''
 
-      @io = case io
-      when Socket, OpenSSL::SSL::SSLSocket, IO
-        io
-      when String
-        if !io.include?("\0") && File.exists?(io) && !File.directory?(io)
-          File.open(io, "r")
-        else
-          StringIO.new(io)
+        @io = case io
+        when Socket, OpenSSL::SSL::SSLSocket, IO
+          io
+        when String
+          if !io.include?("\0") && File.exists?(io) && !File.directory?(io)
+            File.open(io, "r")
+          else
+            StringIO.new(io)
+          end
         end
+        raise "Unable to create local socket" unless @io
       end
-      raise "Unable to create local socket" unless @io
+    else
+      def initialize_with_fakeweb(io, debug_output = nil)
+        @read_timeout = 60
+        @rbuf = ''
+        @debug_output = debug_output
+
+        @io = case io
+                when Socket, OpenSSL::SSL::SSLSocket, IO
+                  io
+                when String
+                  if !io.include?("\0") && File.exists?(io) && !File.directory?(io)
+                    File.open(io, "r")
+                  else
+                    StringIO.new(io)
+                  end
+              end
+        raise "Unable to create local socket" unless @io
+      end
     end
+
     alias_method :initialize_without_fakeweb, :initialize
     alias_method :initialize, :initialize_with_fakeweb
   end
